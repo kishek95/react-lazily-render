@@ -18549,7 +18549,7 @@ var LazilyRender = function (_React$Component) {
         }
 
         if ((0, _isElementInViewport2.default)(elementBounds, viewportBounds, offsetBounds)) {
-          _this.stopListening();
+          _this.stopListening(_this.container);
           _this.setState({
             hasBeenScrolledIntoView: true
           }, function () {
@@ -18562,23 +18562,29 @@ var LazilyRender = function (_React$Component) {
         }
       });
     }, _this.handleMount = function (element) {
+      var scrollContainer = _this.props.scrollContainer;
+
       _this.element = element;
-      if (_this.element) {
-        _this.container = _this.getContainer();
-      } else {
-        _this.container = undefined;
-      }
+      _this.container = _this.getContainer(scrollContainer);
     }, _temp), _possibleConstructorReturn(_this, _ret);
   }
 
   _createClass(LazilyRender, [{
     key: 'getContainer',
-    value: function getContainer() {
-      var container = (0, _scrollparent2.default)(this.element);
-      if (container === document.scrollingElement || container === document.documentElement || !(0, _isBackCompatMode2.default)() && container == document.body) {
-        return window;
+    value: function getContainer(scrollContainer) {
+      if (scrollContainer) {
+        return scrollContainer;
       } else {
-        return container;
+        if (this.element) {
+          var container = (0, _scrollparent2.default)(this.element);
+          if (container === document.scrollingElement || container === document.documentElement || !(0, _isBackCompatMode2.default)() && container == document.body) {
+            return window;
+          } else {
+            return container;
+          }
+        } else {
+          return undefined;
+        }
       }
     }
   }, {
@@ -18599,16 +18605,43 @@ var LazilyRender = function (_React$Component) {
       return (0, _convertOffsetToBounds2.default)(offset);
     }
   }, {
+    key: 'componentDidUpdate',
+    value: function componentDidUpdate(prevProps, prevState) {
+      var _this2 = this;
+
+      var prevContainer = prevProps.scrollContainer;
+      var nextContainer = this.props.scrollContainer;
+      // If a scroll container was defined before, do some cleanup
+      // and bootstrap the next scroll container.
+
+      if (prevContainer !== nextContainer) {
+        // If the previous container was already utilised, no cleanup
+        // is required - already done in LazilyRender.update().
+        if (!prevState.hasBeenScrolledIntoView) {
+          this.stopListening(prevContainer);
+        }
+        // Set a new listener if the scrollContainer is defined, and update 
+        // the container property accordingly. Note: this should only be done
+        // when the next container is different.
+        this.container = this.getContainer(nextContainer);
+        this.startListening(this.container);
+        // Signal that the element has not been scrolled into view and 
+        // recompute its position. This will essentially 'reset' the node's
+        // current status back to a placeholder item if need be.
+        this.setState({ hasBeenScrolledIntoView: false }, function () {
+          _this2.update();
+        });
+      }
+    }
+  }, {
     key: 'startListening',
-    value: function startListening() {
-      var container = this.container;
+    value: function startListening(container) {
       if (container) container.addEventListener('scroll', this.update, _eventListenerOptions2.default);
       window.addEventListener('resize', this.update);
     }
   }, {
     key: 'stopListening',
-    value: function stopListening() {
-      var container = this.container;
+    value: function stopListening(container) {
       if (container) container.removeEventListener('scroll', this.update, _eventListenerOptions2.default);
       window.removeEventListener('resize', this.update);
     }
@@ -18616,12 +18649,12 @@ var LazilyRender = function (_React$Component) {
     key: 'componentDidMount',
     value: function componentDidMount() {
       this.update();
-      this.startListening();
+      this.startListening(this.container);
     }
   }, {
     key: 'componentWillUnmount',
     value: function componentWillUnmount() {
-      this.stopListening();
+      this.stopListening(this.container);
     }
   }, {
     key: 'renderChildren',
